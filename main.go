@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -49,47 +48,27 @@ func askRandomAPI(numReqs, length int) []StddevResult {
 func getRandomMean(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 
-	_, requestsParamPresent := params["requests"]
-	_, lengthParamPresent := params["length"]
-
-	if !requestsParamPresent || !lengthParamPresent {
-		status := http.StatusUnprocessableEntity
-		w.WriteHeader(status)
-
-		errJSON, err := json.Marshal(makeErrorStruct(status, "Unprocessable Entity",
-			"Missing parameters in query string", r.RequestURI))
-		if err == nil {
-			w.Write(errJSON)
-		}
-
+	if !areParamsPresent(params, "requests", "length") {
+		errorStruct := makeErrorStruct(http.StatusUnprocessableEntity,
+			"Unprocessable Entity", "Missing parameters in query string",
+			r.RequestURI)
+		writeAsJsonWithStatus(errorStruct, errorStruct.Status, w)
 		return
 	}
 
-	reqNum, errReqNum := strconv.Atoi(params["requests"][0])
+	requests, errRequests := strconv.Atoi(params["requests"][0])
 	length, errLength := strconv.Atoi(params["length"][0])
 
-	if errReqNum != nil || errLength != nil {
-		status := http.StatusUnprocessableEntity
-		w.WriteHeader(status)
-
-		errJSON, err := json.Marshal(makeErrorStruct(status, "Unprocessable Entity",
-			"Unable to parse parameters in query string", r.RequestURI))
-		if err == nil {
-			w.Write(errJSON)
-		}
-
+	if errRequests != nil || errLength != nil {
+		errorStruct := makeErrorStruct(http.StatusUnprocessableEntity,
+			"Unprocessable Entity", "Unable to parse parameters in query string",
+			r.RequestURI)
+		writeAsJsonWithStatus(errorStruct, errorStruct.Status, w)
 		return
 	}
 
-	res := askRandomAPI(reqNum, length)
-	jsonres, err := json.Marshal(res)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(jsonres)
+	res := askRandomAPI(requests, length)
+	writeAsJsonWithStatus(res, http.StatusOK, w)
 }
 
 func main() {
